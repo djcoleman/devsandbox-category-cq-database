@@ -223,7 +223,31 @@ curl -X POST http://localhost:8080/api/messages/fail
 
 In this case, the route logic caused an exception to be thrown, so the database transaction was rolled back. If you run the `devfile:get-messages` task again, you should just see the original `hello` message on the console. The `fail` message will not be listed.
 
+Finally, you can test the crash recovery process by first sending the `crash` message by either running the `devfile:send-crash` or running the following command:
 
+[source,bash]
+----
+curl -X POST http://localhost:8080/api/messages/crash
+----
+
+This will cause the example to terminate and the curl command will exit with an error saying it received an empty message from the server. Restart the application by re-running the `devfile:start-jta-jpa` task, or running the following command in the `tools` console:
+
+[source,bash]
+----
+mvn -Dquarkus.profile=k8s quarkus:dev
+----
+
+Note: Do not run `mvn clean` as this will remove the persistent transaction data, so the transaction will not be recovered and the crash message will be lost.
+
+After a few seconds, you should log messages similer to the following indicating that the DummyXAResource transaction was committed:
+
+[source]
+----
+2023-10-24 15:44:37,140 INFO  [org.acm.DummyXAResourceRecovery] (Periodic Recovery) DummyXAResourceRecovery returning list of resources: [org.acme.DummyXAResource@447279b9]
+2023-10-24 15:44:37,147 INFO  [org.acm.DummyXAResource] (Periodic Recovery) Committing DummyXAResource
+----
+
+Running the `devfile:get-messages` task one final time will display the original `hello` message and the recovered `crash` message.
 
 {empty} +
 
