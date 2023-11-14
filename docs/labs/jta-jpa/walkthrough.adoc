@@ -27,7 +27,7 @@ Two REST endpoints are defined as gateways to the Camel routes: the POST method 
 {empty} +
 
 
-[time=1]
+[time=7]
 [id="section-one"]
 == Explore the source code
 
@@ -43,7 +43,6 @@ The route definition can be found in the following file:
 
 The first statement in the `configure()` method sets up the REST API:
 
-[source,java,linenums]
 ----
 rest("/messages")
         .produces("text/plain")
@@ -58,7 +57,6 @@ Camel's REST DSL is used to create routes from HTTP endpoints to other component
 
 The Direct component provides a simple way to send synchronous messages within a `CamelContext`. The `messages` endpoint below is called from the `get()` endpoint:
 
-[source,java,linenums]
 ----
 from("direct:messages")
         .to("jpa:org.acme.AuditLog?namedQuery=getAuditLog")
@@ -73,7 +71,6 @@ image::images/trans-route.png[align="center", width=80%]
 
 To aid explanation, the route will be described in three sections. The first section sets up the transaction:
 
-[source,java,linenums]
 ----
 from("direct:trans")
         .transacted()
@@ -94,7 +91,6 @@ Lines 4-8 define a custom process that creates a dummy XA resource and registers
 
 The second part of the route persists the message in the database:
 
-[source,java,linenums]
 ----
         .to("bean:auditLog?method=createAuditLog(${body})")
         .to("jpa:org.acme.AuditLog")
@@ -106,7 +102,6 @@ The message is next passed to the JPA producer endpoint, with `org.acme.AuditLog
 
 The final section of the route adds some logic to optionally test the roll-back of the transaction:
 
-[source,java,linenums]
 ----
         setBody(simple("${headers.message}"))
         .choice()
@@ -166,7 +161,7 @@ At some point shortly after the application has started, the `getXAResources()` 
 
 {empty} +
 
-[time=3]
+[time=5]
 [id="section-two"]
 == Run the example
 
@@ -178,13 +173,11 @@ Alternatively, you can open a terminal from the menu by selecting `Terminal > Ne
 
 [source, subs=]
 ----
-cd /projects/examples/jta-jpa
-mvn -Dquarkus.profile=k8s clean quarkus:dev
+cd /projects/examples/jta-jpa && mvn -Dquarkus.profile=k8s clean quarkus:dev
 ----
 
 Once the example is built and running, you should see output similar to the following:
 
-[source]
 ----
 2023-10-20 14:53:11,860 INFO  [org.apa.cam.imp.eng.AbstractCamelContext] (Quarkus Main Thread) Apache Camel 4.0.0 (camel-1) is starting
 2023-10-20 14:53:11,897 INFO  [org.apa.cam.imp.eng.AbstractCamelContext] (Quarkus Main Thread) Routes startup (started:4)
@@ -241,7 +234,6 @@ Note: Do not run `mvn clean` as this will remove the persistent transaction data
 
 After a few seconds, you should log messages similer to the following indicating that the DummyXAResource transaction was committed:
 
-[source]
 ----
 2023-10-24 15:44:37,140 INFO  [org.acm.DummyXAResourceRecovery] (Periodic Recovery) DummyXAResourceRecovery returning list of resources: [org.acme.DummyXAResource@447279b9]
 2023-10-24 15:44:37,147 INFO  [org.acm.DummyXAResource] (Periodic Recovery) Committing DummyXAResource
