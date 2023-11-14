@@ -32,7 +32,7 @@ Data is periodically inserted into a data store and then queried to display a ru
 {empty} +
 
 
-[time=1]
+[time=2]
 [id="section-one"]
 == Explore the source code
 
@@ -48,7 +48,6 @@ Start by opening the route definition in the following file:
 
 The first half of the route inserts records into the databsae:
 
-[source,java,linenums]
 ----
 from("timer://insertCamel?period=1000")
         .log("Inserting Camel ${messageTimestamp}")
@@ -56,14 +55,13 @@ from("timer://insertCamel?period=1000")
         .to("jdbc:camel-ds")
 ----
 
-. The `timer` component sends a message every 1000 milliseconds.
-. The unix timestamp of the message, identified with `${messageTimestamp}` in the Simple language, is logged to the console.
-. The message body is populated with an `INSERT` statement. The `messageTimestamp` value will be inserted into the `timestamp` column in the `camel` table.
-. The `jdbc` component executes the statement in the message body on the data source referenced by the `camel-ds` identifier.
+- The `timer` component sends a message every 1000 milliseconds.
+- The unix timestamp of the message, identified with `${messageTimestamp}` in the Simple language, is logged to the console.
+- The message body is populated with an `INSERT` statement. The `messageTimestamp` value will be inserted into the `timestamp` column in the `camel` table.
+- The `jdbc` component executes the statement in the message body on the data source referenced by the `camel-ds` identifier.
 
 The second half retrieves all the records and logs the count and individual entries:
 
-[source,java,linenums]
 ----
         .setBody().simple("SELECT * FROM camel")
         .to("jdbc:camel-ds")
@@ -89,7 +87,6 @@ The database connection properties are specified in the `src/main/resources/appl
 
 When running locally, the H2 database is used, and Quarkus will use Dev Services to automatically start up a database instance. However, when running in OpenShift Dev Spaces, Dev Services doesn't work due to limitations with starting containers within a container. Instead, the `k8s` profile is used to define the connection parameters to a MySql database. These properties are defined below:
 
-[source]
 ----
 %k8s.quarkus.datasource.camel-ds.db-kind=mysql
 %k8s.quarkus.datasource.camel-ds.username=cquser
@@ -100,7 +97,7 @@ When running locally, the H2 database is used, and Quarkus will use Dev Services
 
 {empty} +
 
-[time=3]
+[time=2]
 [id="section-two"]
 == Run the example
 
@@ -112,13 +109,11 @@ Alternatively, you can open a terminal from the menu by selecting `Terminal > Ne
 
 [source, subs=]
 ----
-cd /projects/examples/jdbc-datasource
-mvn -Dquarkus.profile=k8s clean quarkus:dev
+cd /projects/examples/jdbc-datasource && mvn -Dquarkus.profile=k8s clean quarkus:dev
 ----
 
 After a few seconds, you should start seeing output similar to the following:
 
-[source]
 ----
 2023-10-13 10:54:26,199 INFO  [route1] (Camel (camel-1) thread #1 - timer://insertCamel) Inserting Camel 1697194460199
 2023-10-13 10:54:26,202 INFO  [route1] (Camel (camel-1) thread #1 - timer://insertCamel) Inserted Camel 1697194460199
@@ -140,7 +135,7 @@ Inspect the logs to investigate possible causes of failure.
 
 {empty} +
 
-[time=3]
+[time=5]
 [id="section-three"]
 == Split Results Into Separate Messages
 
@@ -148,7 +143,6 @@ You'll see from the output in the previous section that all results are logged i
 
 Open the `src/main/java/org/acme/jdbc/JdbcRoutes.java` file in the editor and insert the `split` line just above the last log statements in the route:
 
-[source,java,highlight=3]
 ----
         .setBody().simple("SELECT * FROM camel")
         .to("jdbc:camel-ds")
@@ -161,7 +155,6 @@ If the example application is still running in `dev` mode, then saving the chang
 
 After making the above change, you should now see each `SELECT` query will generate multiple log messages:
 
-[source]
 ----
 2023-11-09 13:49:47,865 INFO  [route1] (Camel (camel-1) thread #1 - timer://insertCamel) Inserted Camel 1699537787860
 2023-11-09 13:49:47,870 INFO  [route1] (Camel (camel-1) thread #1 - timer://insertCamel) We have 2 camels in the database.
@@ -174,7 +167,6 @@ In the above output, you can see that the total result count is now displayed be
 
 When dealing with queries that return a large number of rows, this approach becomes memory-intensive as the enitre result set is read into memory. By switching to a streaming approach, each row is returned on demand. You can enable streaming by making the following changes to the route:
 
-[source,java,highlight=2,3]
 ----
         .setBody().simple("SELECT * FROM camel")
         .to("jdbc:camel-ds?outputType=StreamList")
@@ -187,7 +179,6 @@ Note that you need to set the `outputType` on the JDBC component to `StreamList`
 
 When running the example with these modifications, you'll now see output similar to the following:
 
-[source]
 ----
 2023-11-09 14:03:35,851 INFO  [route1] (Camel (camel-1) thread #1 - timer://insertCamel) Inserted Camel 1699538615845
 2023-11-09 14:03:35,854 INFO  [route1] (Camel (camel-1) thread #1 - timer://insertCamel) We have  camels in the database.
@@ -200,7 +191,7 @@ One thing to notice from the above output is that the row count is now missing f
 
 {empty} +
 
-[time=3]
+[time=9]
 [id="section-four"]
 == Using Parameterised Queries
 
@@ -210,7 +201,6 @@ To demostrate this principle, the route will be modified to expose the `INSERT` 
 
 Open the `src/main/java/org/acme/jdbc/JdbcRoutes.java` file in the editor and first split the single route into two separate routes - one to handle inserts and another to handle queries. The insert route will be initiated by the `direct` component so it can be called from a rest endpoint. The query route will be called directly from the timer:
 
-[source,java]
 ----
 // Insert route
 from("direct:insert-message")
@@ -229,7 +219,6 @@ from("timer://insertCamel?period=1000")
 
 The value being inserted into the `camel` table is coming from the `message` header, which hasn't yet been set. Add a REST endpoint above the insert route as follows:
 
-[source,java]
 ----
 rest()
         .post("/camel/{message}")
@@ -239,9 +228,14 @@ rest()
 
 This creates a REST endpoint that listens for POST requests on http://localhost:8080/camel/{message}. `{message}` is a path parameter, and its value will be stored in the `message` property in the message header. Finally, the `direct:insert-message` route is called, which handles the database insertion.
 
+The `RestParamType` class will also need to be imported:
+
+----
+import org.apache.camel.model.rest.RestParamType;
+----
+
 Before you can build the modified example, you'll need to add a couple of dependencies to the `pom.xml` file in order to use the `rest` and `direct` components:
 
-[source,xml]
 ----
 <dependency>
     <groupId>org.apache.camel.quarkus</groupId>
@@ -264,7 +258,6 @@ curl -X POST http://localhost:8080/camel/hello
 
 You can confirm that the `curl` command worked correctly by checking the console log. You should now see 1 message returned in the logs:
 
-[source]
 ----
 2023-11-10 11:17:59,456 INFO  [route2] (Camel (camel-1) thread #1 - timer://insertCamel) We have 1 camels in the database.
 2023-11-10 11:17:59,457 INFO  [route2] (Camel (camel-1) thread #1 - timer://insertCamel) Camels found: [{ID=1, TIMESTAMP=hello}]
@@ -272,11 +265,23 @@ You can confirm that the `curl` command worked correctly by checking the console
 
 === SQL Injection
 
-SQL injection occurs when an attacker can manipulate the input to a SQL query in a way that the query's structure is altered, leading to unintended and potentially malicious actions. To demonstrate an attack, try sending the message `hello'); delete from camel; --` to the camel endpoint. It needs to be URL encoded to avoid misinterpretation by the shell:
+SQL injection occurs when an attacker can manipulate the input to a SQL query in a way that the query's structure is altered, leading to unintended and potentially malicious actions. The example we'll use will inject a delete statement, but by default the MySQL JDBC driver doesn't allow multiple statements to be executed from a single invocation. To circumvet this restriction for the purposes of this tutorial, alter the JDBC url in the `src/main/resources/application.properties` file as follows:
+
+----
+%k8s.quarkus.datasource.camel-ds.jdbc.url=jdbc:mysql://localhost:3306/testdb?allowMultiQueries=true
+----
+
+Before trying the SQL injection attack, run the previous `curl` command to ensure there is a valid message in the database:
+
+----
+curl -X POST http://localhost:8080/camel/hello
+----
+
+Next, to demonstrate an attack, try sending the message `hello'); delete from camel; -- ` to the camel endpoint. It needs to be URL encoded to avoid misinterpretation by the shell:
 
 [source,bash]
 ----
-curl -X POST "http://localhost:8080/camel/hello%27%29%3B%20delete%20from%20camel%3B%20--"
+curl -X POST "http://localhost:8080/camel/hello%27%29%3B%20delete%20from%20camel%3B%20--%20"
 ----
 
 The `');` in the message terminates the `INSERT` statement constructed in the route, and then injects a `DELETE` statement to remove all rows from the `camel` table. The final `--` comments out everything after the `${headers.message}` in the route's `INSERT` statement. To verify the delete statement was executed, check the example log and verify that zero camels have been found.
@@ -285,7 +290,6 @@ One way to prevent this kind of attack is to use parameterised statements. Inste
 
 Change the `INSERT` statement and `jdbc` endpoint as follows:
 
-[source,java,highlight=3,4]
 ----
 from("direct:insert-message")
         .log("Inserting Camel ${headers.message}")
@@ -296,7 +300,6 @@ from("direct:insert-message")
 
 If you re-run the above two `curl` commands, you should see that both the `hello` message and the failed attempt at SQL injection are displayed as messages:
 
-[source]
 ----
 2023-11-10 15:37:17,647 INFO  [route2] (Camel (camel-1) thread #1 - timer://insertCamel) We have 2 camels in the database.
 2023-11-10 15:37:17,648 INFO  [route2] (Camel (camel-1) thread #1 - timer://insertCamel) Camels found: [{ID=1, TIMESTAMP=hello}, {ID=2, TIMESTAMP=hello'); delete from camel; --}]
